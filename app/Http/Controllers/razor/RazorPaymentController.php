@@ -12,27 +12,38 @@ class RazorPaymentController extends Controller
 {
     public function createOrder(Request $request)
     {
-        $api = new Api(env('RAZORPAY_KEY'), env('RAZORPAY_SECRET'));
+        try {
+            $api = new Api(env('RAZORPAY_KEY'), env('RAZORPAY_SECRET'));
 
-        $order = $api->order->create([
-            'receipt' => 'order_rcptid_11',
-            'amount' => $request->amount * 100, // paise me
-            'currency' => 'INR'
-        ]);
+            $order = $api->order->create([
+                'receipt' => 'order_rcptid_11',
+                'amount' => $request->amount * 100, // paise me
+                'currency' => 'INR'
+            ]);
 
-        // DB me save (status: created)
-        Payment::create([
-            'order_id' => $order['id'],
-            'amount' => $request->amount,
-            'status' => 'created'
-        ]);
+            // DB me save (status: created)
+            Payment::create([
+                'order_id' => $order['id'],
+                'amount' => $request->amount,
+                'status' => 'created',
+                'email' => $request->email,
+                'contact' => $request->contact,
+                'transaction_id' => $request->transaction_id,
+                'name' => $request->name,
+                'description' => $request->description
+            ]);
 
-
-        return response()->json([
-            'order_id' => $order['id'],
-            'amount' => $order['amount'],
-            'key' => env('RAZORPAY_KEY')
-        ]);
+            return response()->json([
+                'order_id' => $order['id'],
+                'amount' => $order['amount'],
+                'key' => env('RAZORPAY_KEY')
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to create order: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
 
@@ -64,7 +75,7 @@ class RazorPaymentController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Payment verified successfully'
-            ]);
+            ], 200);
         } catch (Exception $e) {
 
             Payment::where('order_id', $request->order_id)
