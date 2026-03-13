@@ -69,6 +69,7 @@ class RazorPaymentController extends Controller
             $payment->update([
                 'payment_id' => $request->payment_id,
                 'signature' => $request->signature,
+                'user_id' => $request->user_id,
                 'status' => 'success'
             ]);
 
