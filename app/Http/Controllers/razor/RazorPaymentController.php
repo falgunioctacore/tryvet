@@ -13,22 +13,28 @@ class RazorPaymentController extends Controller
     public function createOrder(Request $request)
     {
         try {
+            $request->validate([
+                'amount' => 'required|numeric|min:1',
+                'email' => 'required|email',
+                'contact' => 'required',
+                'name' => 'required'
+            ]);
+
             $api = new Api(env('RAZORPAY_KEY'), env('RAZORPAY_SECRET'));
 
             $order = $api->order->create([
-                'receipt' => 'order_rcptid_11',
-                'amount' => $request->amount * 100, // paise me
+                'receipt' => 'order_' . uniqid(),
+                'amount' => $request->amount * 100,
                 'currency' => 'INR'
             ]);
 
-            // DB me save (status: created)
             Payment::create([
                 'order_id' => $order['id'],
                 'amount' => $request->amount,
                 'status' => 'created',
                 'email' => $request->email,
                 'contact' => $request->contact,
-                'transaction_id' => $request->transaction_id,
+                'transaction_id' => null,
                 'name' => $request->name,
                 'description' => $request->description
             ]);
@@ -37,15 +43,14 @@ class RazorPaymentController extends Controller
                 'order_id' => $order['id'],
                 'amount' => $order['amount'],
                 'key' => env('RAZORPAY_KEY')
-            ], 200);
+            ]);
         } catch (Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Failed to create order: ' . $e->getMessage()
+                'message' => 'Failed: ' . $e->getMessage()
             ], 500);
         }
     }
-
 
     public function verify(Request $request)
     {
@@ -65,6 +70,18 @@ class RazorPaymentController extends Controller
             if (!$payment) {
                 return response()->json(['status' => false, 'message' => 'Order not found'], 404);
             }
+
+            if ($payment->status === 'success') {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Already verified'
+                ]);
+            }
+
+            // Capture payment
+            $api->payment->fetch($request->payment_id)->capture([
+                'amount' => $payment->amount * 100
+            ]);
 
             $payment->update([
                 'payment_id' => $request->payment_id,
